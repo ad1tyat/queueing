@@ -1,0 +1,16 @@
+Avg PD : 0.42394
+Std Dev PD : 0.713934
+Avg link util : 0.50125
+Avg KOUQ utidrop probability : 0
+Avg PD : 0.429268
+Std Dev PD : 0.726549
+Avg link util : 0.497125
+Avg KOUQ utidrop probability : 0
+Avg PD : 0.441344
+Std Dev PD : 0.744911
+Avg link util : 0.50165
+Avg KOUQ utidrop probability : 0
+Avg PD : 0.445071
+Std Dev PD : 0.746926
+Avg link util : 0.5011
+Avg KOUQ utidrop probability : 0
