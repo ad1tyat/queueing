@@ -80,7 +80,8 @@ int phase_2_inq(){
             auto curr_id = op_temp[i][0].first;
             auto curr = op_temp[i][0].second;
             ip_port[curr_id].pop();
-            op_port[i].push(curr);
+            if(op_port[i].size() < buffer_size)
+                op_port[i].push(curr);
 
         }else if(op_temp[i].size() > 1){
             int sz = op_temp[i].size();
@@ -89,7 +90,8 @@ int phase_2_inq(){
             auto curr_id = op_temp[i][rnd_ind].first;
             auto curr = op_temp[i][rnd_ind].second;
             ip_port[curr_id].pop();
-            op_port[i].push(curr);
+            if(op_port[i].size() < buffer_size)
+                op_port[i].push(curr);
         }
     }
     return 0;
@@ -111,7 +113,8 @@ int phase_2_kouq(){
             auto curr_id = op_temp[i][0].first;
             auto curr = op_temp[i][0].second;
             ip_port[curr_id].pop();
-            op_port[i].push(curr);
+            if(op_port[i].size() < buffer_size)
+                op_port[i].push(curr);
 
         }else if(op_temp[i].size() > 1){
             // take k randomly, sort them, put them in buffer
@@ -133,7 +136,9 @@ int phase_2_kouq(){
                 auto curr_id = op_temp[i][j].first;
                 auto curr = op_temp[i][j].second;
                 ip_port[curr_id].pop();
-                op_port[i].push(curr);
+                
+                if(op_port[i].size() < buffer_size)
+                    op_port[i].push(curr);
             }
 
             // drop remaining packets
@@ -172,7 +177,7 @@ int phase_3(){
             // packet at head of queue will be transmitted
             auto curr = op_port[i].front();
             op_port[i].pop();
-            int en_time = current_time;
+            int en_time = current_time + 1;
             int st_time = curr.st_time;
             sum_of_delays += en_time - st_time; 
             all_delays.push_back(en_time - st_time);
@@ -186,8 +191,10 @@ int phase_3(){
 
 
 int main(int argc,char* argv[]){
+    // setting a seed for rand()
     srand(time(0));
 
+    // processing command line inputs
     for(int i = 1;i<argc;i+=2){
         string arg_str = (string)argv[i];
         if(arg_str == "-N"){
@@ -199,7 +206,7 @@ int main(int argc,char* argv[]){
         }else if(arg_str == "-queue"){
             queue_type = argv[i + 1];
         }else if(arg_str == "-K"){
-            knockout_time = stod((string)argv[i + 1]);
+            knockout_factor = stod((string)argv[i + 1]);
         }else if(arg_str == "-out"){
             output_file = argv[i + 1];
         }else if(arg_str == "-T"){
@@ -211,35 +218,43 @@ int main(int argc,char* argv[]){
         }
     }
     
+    // resizing port buffers according to number of ports
     ip_port.resize(number_ports);
     op_port.resize(number_ports);
 
-
-    if(queue_type == "KOUQ" && knockout_time == -1){
-        knockout_time = (0.8*(double)number_ports);
+    // setting knockout time
+    if(queue_type == "KOUQ"){
+        knockout_time = ((double)knockout_factor*(double)number_ports);
     }
 
     fstream fout;
     fout.open(output_file,  std::fstream::out | std::fstream::app);
 
+    fout<<setprecision(5);
+
+    fstream dout;
+    dout.open(debug_file,  std::fstream::out);
+
+    // simulating the timeslots
     for(int tm = 0;tm<max_time_slots;tm++){
 
+        // initiaing phase 1
         int phase1_over = phase_1();
 
         if(phase1_over >= 0){
             
-            cout<<"Time slot "<<tm<<" :Phase 1 finished successfully."<<endl;
+            dout<<"Time slot "<<tm<<" :Phase 1 finished successfully."<<endl;
             int phase2_over = phase_2();
 
                 if(phase_2 >= 0){
 
-                    cout<<"Time slot "<<tm<<" :Phase 2 finished successfully."<<endl;
+                    dout<<"Time slot "<<tm<<" :Phase 2 finished successfully."<<endl;
                     int phase_3_over = phase_3();
 
                     if(phase_3_over >= 0){
 
-                        cout<<"Time slot "<<tm<<" :Phase 3 finished successfully."<<endl;
-                        cout<<"Time slot "<<tm<<" :All three phases finished successfully."<<endl;
+                        dout<<"Time slot "<<tm<<" :Phase 3 finished successfully."<<endl;
+                        dout<<"Time slot "<<tm<<" :All three phases finished successfully."<<endl;
                     }else{
                         cout<<"ERROR"<<endl;
                         return 1;
@@ -256,17 +271,22 @@ int main(int argc,char* argv[]){
     }
     // avg Packet delay = mean(all_delays)
     // standard deviation Packet delay = standard_deviation(all_delays)
-
+    fout<<number_ports<<'\t'<<packetgenprob<<'\t'<<queue_type<<'\t';
     if(all_delays.size() > 0){
 
         double avg_link_util = ((double)link_util / (double)number_ports)/(double)max_time_slots;
         double avg_kouq_drop_probab = ((double)sum_of_kouq / (double)number_ports)/ (double)max_time_slots;
-        fout<<"Avg PD : "<<mean(all_delays)<<endl;
-        fout<<"Std Dev PD : "<<standard_deviation(all_delays)<<endl;
-        fout<<"Avg link util : "<<avg_link_util<<endl;
+        // fout<<"Avg PD : "<<mean(all_delays)<<'\t';
+        // fout<<"Std Dev PD : "<<standard_deviation(all_delays)<<'\t';
+        // fout<<"Avg link util : "<<avg_link_util<<'\t';
+        fout<<mean(all_delays)<<'\t';
+        fout<<standard_deviation(all_delays)<<'\t';
+        fout<<avg_link_util<<'\t';
         if(queue_type == "KOUQ")
-            fout<<"Avg KOUQ utidrop probability : "<< avg_kouq_drop_probab<<endl;
+            fout<<avg_kouq_drop_probab<<'\t';
     }
+    fout<<endl;
     fout.close();
+    dout.close();
     return 0;
 }
