@@ -33,3 +33,12 @@ vector<int> all_delays;
 
 vector<queue<packet>> ip_port;
 vector<queue<packet>> op_port;
+
+vector<vector<queue<packet>>> ip_port_voq;
+vector<vector<pair<int,packet>>> op_port_reqs;
+vector<vector<int>> ip_port_grants;
+
+vector<int> op_port_grant;
+
+vector<int> ip_port_priority;
+vector<int> op_port_priority;

@@ -35,7 +35,7 @@ void init_struct(packet& pac, int idx, float st_time, float en_time, int ip_port
     pac.op_port = op_port;
 }
 
-int phase_1(){
+int phase_1(string queue_type){
 
     for(int i = 0;i<number_ports;i++){
         double val = get_rand();
@@ -52,11 +52,24 @@ int phase_1(){
             global_index++;
             
             // push tmp to buffer
-            int csize = ip_port[i].size();
-            if(csize >= buffer_size){
-                // input buffer full, drop the packet;
+
+
+            // if ISLIP, send it to Virtual Output Queue
+            if(queue_type == "ISLIP"){
+                int csize = ip_port_voq[i][op_port].size();
+                if(csize >= buffer_size){
+                    // input buffer full, drop the packet;
+                }else{
+                    cout<<"Packet from "<<i<<" to "<<op_port<<" generated."<<endl;
+                    ip_port_voq[i][op_port].push(tmp);
+                }
             }else{
-                ip_port[i].push(tmp);
+                int csize = ip_port[i].size();
+                if(csize >= buffer_size){
+                    // input buffer full, drop the packet;
+                }else{
+                    ip_port[i].push(tmp);
+                }
             }
         }
     }
@@ -154,6 +167,93 @@ int phase_2_kouq(){
 }
 
 int phase_2_islip(){
+
+    for(int i = 0;i<number_ports;i++){
+        op_port_reqs[i].clear();
+        ip_port_grants[i].clear();
+    }
+
+    // implemented multi iteration 
+    // for each iteration :
+    // 1. request
+    // 2. grant
+    // 3. accept
+
+    // request
+    // for each input port
+    for(int i = 0;i<number_ports;i++){
+        // for each virtual output queue
+        for(int j = 0;j<number_ports;j++){
+            // if there is a packet
+            if(ip_port_voq[i][j].size() > 0){
+                // send request to op port
+                auto curr = ip_port_voq[i][j].front();
+                op_port_reqs[j].push_back({i, curr});
+            }
+        }
+    }
+    // grant :
+    // for each output port
+    for(int i = 0;i<number_ports;i++){
+        int highest_priority = op_port_priority[i];
+        set<int> ip_port_reqs;
+        for(auto &x : op_port_reqs[i]){
+            ip_port_reqs.insert(x.first);
+        }
+        bool granted = 0;
+        for(int j = 0;j<number_ports;j++){
+            int curr = (highest_priority + j)%number_ports;
+            if(ip_port_reqs.find(curr) != ip_port_reqs.end()){
+                op_port_grant[i] = curr;
+                cout<<curr<<" "<<i<<endl; 
+                assert(ip_port_voq[curr][i].size() > 0);
+                assert(ip_port_voq[curr][i].front().op_port == i);
+                assert(ip_port_voq[curr][i].front().ip_port == curr);
+                ip_port_grants[curr].push_back(i);
+                granted = 1;
+                break;
+            }
+        }
+    }
+    // accept :
+    // for each input port
+    for(int i = 0;i<number_ports;i++){
+        if(ip_port_grants[i].size() > 0){
+
+            
+            int highest_priority = ip_port_priority[i];
+            set<int> all_grants;
+
+            for(auto &x : ip_port_grants[i]){
+                all_grants.insert(x);
+            }
+
+            bool accepted = 0;
+            for(int j = 0;j<number_ports;j++){
+                int curr = (highest_priority + j)%number_ports;
+                if(all_grants.count(curr)){
+                    // WE ARE ACCEPTING THIS PACKET
+                    // IP = i, OP = curr
+                    assert(ip_port_voq[i][curr].size() > 0);
+                    auto pack = ip_port_voq[i][curr].front();
+                    // popping the transmitted packet
+                    ip_port_voq[i][curr].pop();
+
+                    // pushing it to output buffer
+                    if(op_port[curr].size() < buffer_size){
+                        op_port[curr].push(pack);
+                    }
+
+                    // Setting IP Port Priority
+                    ip_port_priority[i] = (curr + 1)%number_ports;
+                    
+                    // Setting OP Port Priority
+                    op_port_priority[curr] = (i + 1)%number_ports;
+                    break;
+                }
+            }
+        }
+    }    
     return 0;
 }
 
@@ -227,6 +327,23 @@ int main(int argc,char* argv[]){
         knockout_time = ((double)knockout_factor*(double)number_ports);
     }
 
+    if(queue_type == "ISLIP"){
+
+        ip_port_priority.resize(number_ports);
+        op_port_priority.resize(number_ports);
+        ip_port_voq.reserve(number_ports);
+
+        op_port_reqs.resize(number_ports);
+        op_port_grant.resize(number_ports);
+        ip_port_grants.resize(number_ports);
+
+        for(int i = 0; i<number_ports;i++){
+            ip_port_voq[i].resize(number_ports);
+            ip_port_priority[i] = 0;
+            op_port_priority[i] = 0;
+        }
+    }
+
     fstream fout;
     fout.open(output_file,  std::fstream::out | std::fstream::app);
 
@@ -239,26 +356,26 @@ int main(int argc,char* argv[]){
     for(int tm = 0;tm<max_time_slots;tm++){
 
         // initiaing phase 1
-        int phase1_over = phase_1();
+        int phase1_over = phase_1(queue_type);
 
         if(phase1_over >= 0){
             
             dout<<"Time slot "<<tm<<" :Phase 1 finished successfully."<<endl;
             int phase2_over = phase_2();
 
-                if(phase_2 >= 0){
+            if(phase2_over >= 0){
 
-                    dout<<"Time slot "<<tm<<" :Phase 2 finished successfully."<<endl;
-                    int phase_3_over = phase_3();
+                dout<<"Time slot "<<tm<<" :Phase 2 finished successfully."<<endl;
+                int phase_3_over = phase_3();
 
-                    if(phase_3_over >= 0){
+                if(phase_3_over >= 0){
 
-                        dout<<"Time slot "<<tm<<" :Phase 3 finished successfully."<<endl;
-                        dout<<"Time slot "<<tm<<" :All three phases finished successfully."<<endl;
-                    }else{
-                        cout<<"ERROR"<<endl;
-                        return 1;
-                    }
+                    dout<<"Time slot "<<tm<<" :Phase 3 finished successfully."<<endl;
+                    dout<<"Time slot "<<tm<<" :All three phases finished successfully."<<endl;
+                }else{
+                    cout<<"ERROR"<<endl;
+                    return 1;
+                }
             }else{
                 cout<<"ERROR"<<endl;
                 return 1;
