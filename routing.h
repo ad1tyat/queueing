@@ -5,7 +5,7 @@ int number_ports = 8; // number of ports N, d efault 8
 int buffer_size = 4; // buffer size B, default = 4
 float packetgenprob = 0.5; // packet generation probability, default = 0.5
 int max_time_slots = 10000; // simulation time, default = 10000
-float knockout_factor = 0.8; // knockout time
+float knockout_factor = 0.6; // knockout time
 int knockout_time = -1; // knockout time
 
 string queue_type = "INQ"; // specifies the queue type
@@ -35,6 +35,7 @@ vector<queue<packet>> ip_port;
 vector<queue<packet>> op_port;
 
 vector<vector<queue<packet>>> ip_port_voq;
+vector<int> ip_port_voq_tot;
 vector<vector<pair<int,packet>>> op_port_reqs;
 vector<vector<int>> ip_port_grants;
 

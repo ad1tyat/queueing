@@ -56,12 +56,14 @@ int phase_1(string queue_type){
 
             // if ISLIP, send it to Virtual Output Queue
             if(queue_type == "ISLIP"){
-                int csize = ip_port_voq[i][op_port].size();
+                // int csize = ip_port_voq[i][op_port].size();
+                int csize = ip_port_voq_tot[i];
                 if(csize >= buffer_size){
                     // input buffer full, drop the packet;
                 }else{
-                    cout<<"Packet from "<<i<<" to "<<op_port<<" generated."<<endl;
+                    // cout<<"Packet from "<<i<<" to "<<op_port<<" generated."<<endl;
                     ip_port_voq[i][op_port].push(tmp);
+                    ip_port_voq_tot[i]++;
                 }
             }else{
                 int csize = ip_port[i].size();
@@ -205,12 +207,12 @@ int phase_2_islip(){
             int curr = (highest_priority + j)%number_ports;
             if(ip_port_reqs.find(curr) != ip_port_reqs.end()){
                 op_port_grant[i] = curr;
-                cout<<curr<<" "<<i<<endl; 
-                assert(ip_port_voq[curr][i].size() > 0);
-                assert(ip_port_voq[curr][i].front().op_port == i);
-                assert(ip_port_voq[curr][i].front().ip_port == curr);
+                // assert(ip_port_voq[curr][i].size() > 0);
+                // assert(ip_port_voq[curr][i].front().op_port == i);
+                // assert(ip_port_voq[curr][i].front().ip_port == curr);
                 ip_port_grants[curr].push_back(i);
                 granted = 1;
+                // cout<<"granted "<<curr<<" "<<i<<endl;
                 break;
             }
         }
@@ -238,6 +240,7 @@ int phase_2_islip(){
                     auto pack = ip_port_voq[i][curr].front();
                     // popping the transmitted packet
                     ip_port_voq[i][curr].pop();
+                    ip_port_voq_tot[i]--;
 
                     // pushing it to output buffer
                     if(op_port[curr].size() < buffer_size){
@@ -249,6 +252,8 @@ int phase_2_islip(){
                     
                     // Setting OP Port Priority
                     op_port_priority[curr] = (i + 1)%number_ports;
+
+                    // cout<<"accepted "<<i<<" "<<curr<<endl;
                     break;
                 }
             }
@@ -332,6 +337,7 @@ int main(int argc,char* argv[]){
         ip_port_priority.resize(number_ports);
         op_port_priority.resize(number_ports);
         ip_port_voq.reserve(number_ports);
+        ip_port_voq_tot.resize(number_ports);
 
         op_port_reqs.resize(number_ports);
         op_port_grant.resize(number_ports);
@@ -339,6 +345,7 @@ int main(int argc,char* argv[]){
 
         for(int i = 0; i<number_ports;i++){
             ip_port_voq[i].resize(number_ports);
+            ip_port_voq_tot[i] = 0;
             ip_port_priority[i] = 0;
             op_port_priority[i] = 0;
         }
@@ -392,10 +399,7 @@ int main(int argc,char* argv[]){
     if(all_delays.size() > 0){
 
         double avg_link_util = ((double)link_util / (double)number_ports)/(double)max_time_slots;
-        double avg_kouq_drop_probab = ((double)sum_of_kouq / (double)number_ports)/ (double)max_time_slots;
-        // fout<<"Avg PD : "<<mean(all_delays)<<'\t';
-        // fout<<"Std Dev PD : "<<standard_deviation(all_delays)<<'\t';
-        // fout<<"Avg link util : "<<avg_link_util<<'\t';
+        long double avg_kouq_drop_probab = ((long double)sum_of_kouq / ( long double)number_ports)/ (long double)max_time_slots;
         fout<<mean(all_delays)<<'\t';
         fout<<standard_deviation(all_delays)<<'\t';
         fout<<avg_link_util<<'\t';
